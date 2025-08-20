@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能聊天机器人</title>
+    <style>
+        /* 全局样式 */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #e0f2f1, #f0ece2); /* 柔和的渐变 */
+        }
+
+        /* 容器样式 */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 700px;
+            margin: auto;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #fff;
+        }
+
+        /* 头部样式 */
+        .chat-header {
+            background-color: #80cbc4; /* 调整后的颜色 */
+            color: #fff;
+            text-align: center;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 内容样式 */
+        .chat-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            /* 设置背景图片 */
+            background-image: url("https://gd-hbimg.huaban.com/7e2ab93b1243f99e5066092eed014deedc11861d3178a-BgI8T3_fw658webp");
+            background-size: cover; /* 覆盖整个区域 */
+            background-repeat: no-repeat; /* 不重复 */
+            background-position: center; /* 居中显示 */
+        }
+
+        /* 消息样式 */
+        .message {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards; /* 消息出现动画 */
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.system {
+            justify-content: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .avatar {
+            width: 60px; /* 增大用户头像 */
+            height: 60px; /* 增大用户头像 */
+            margin: 0 10px;
+            border-radius: 50%;
+        }
+
+        .system-avatar {
+            width: 60px; /* 增大系统头像 */
+            height: 60px; /* 增大系统头像 */
+            border-radius: 50%;
+            background: #80cbc4 url('https://pic3.zhimg.com/v2-b3e46ab0027035ea1069a65cd55c1f34_r.jpg') center/cover no-repeat; /* 更换卡通头像 */
+        }
+
+        .message-text {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 10px; /* 减小边角 */
+            background-color: #e8e8e8;
+            word-break: break-word;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.user .message-text {
+            background-color: #80cbc4; /* 调整后的颜色 */
+            color: #fff;
+        }
+
+        .input-area {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #fff;
+            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-box {
+            flex: 1;
+            margin-right: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .send-button {
+            min-width: 80px;
+            padding: 10px 15px;
+            border: none;
+            background-color: #80cbc4; /* 调整后的颜色 */
+            color: #fff;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s; /* 添加 transform 效果 */
+        }
+
+        .send-button:hover {
+            background-color: #4db6ac; /* 鼠标悬停时颜色变化 */
+            transform: scale(1.1); /* 鼠标悬停时放大 */
+        }
+
+        /* 自定义滚动条 */
+        .chat-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .chat-content::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        .chat-content::-webkit-scrollbar-thumb:hover {
+            background: #bbb;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            比奇堡路人鱼问答机器人
+        </div>
+        <div class="chat-content" id="chat-content">
+        </div>
+        <div class="input-area">
+            <input type="text" id="newMessage" placeholder="请输入你的问题" class="input-box">
+            <button type="button" class="send-button" onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const newMessageInput = document.getElementById('newMessage');
+        const chatContent = document.getElementById('chat-content');
+        let nextId = 1;
+
+        const defaultMessages = [
+            { id: 0, text: '泥嚎,你可以问问题了', sender: 'system' }
+        ];
+
+        const storedMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+        const messages = storedMessages.length > 0 ? storedMessages : defaultMessages;
+        
+        function sendMessage() {
+            const newMessageText = newMessageInput.value.trim();
+            if (newMessageText !== '') {
+                if (newMessageText.toLowerCase() === '清理界面') {
+                    clearMessages();
+                } else {
+                    addMessage(newMessageText, 'user');
+                    handleBackendResponse(newMessageText);
+                }
+                newMessageInput.value = '';
+            }
+        }
+
+        function addMessage(text, sender) {
+            const messageId = `message-${nextId++}`;
+            const messageHtml = `
+                <div class="message ${sender}" id="${messageId}">
+                    <div class="avatar ${sender === 'system' ? 'system-avatar' : 'user-avatar'}"></div>
+                    <div class="message-text">${text}</div>
+                </div>
+            `;
+            chatContent.insertAdjacentHTML('beforeend', messageHtml);
+            updateLocalStorage();
+            chatContent.scrollTop = chatContent.scrollHeight;
+        }
+
+        function updateLocalStorage() {
+            const messages = Array.from(document.getElementsByClassName('message')).map((message, index) => ({
+                id: index,
+                text: message.querySelector('.message-text').textContent,
+                sender: message.classList.contains('system') ? 'system' : 'user'
+            }));
+            localStorage.setItem('chatMessages', JSON.stringify(messages));
+        }
+
+        function clearMessages() {
+            localStorage.removeItem('chatMessages');
+            chatContent.innerHTML = '';
+            addMessage(defaultMessages[0].text, defaultMessages[0].sender);
+            nextId = 1;
+            updateLocalStorage();
+        }
+
+        function handleBackendResponse(question) {
+            axios.post('http://127.0.0.1:8000/chat', { question: question })
+                .then(response => {
+                    if (response) {
+                        addMessage(response.data.responseText, 'system');
+                    } else {
+                        addMessage('机器人未能理解您的问题，请再试一次。', 'system');
+                    }
+                })
+                .catch(error => {
+                    console.error('后端通信错误: ', error);
+                    addMessage('聊天机器人在查找问题时出现了问题，拒绝了你的提问。', 'system');
+                });
+
+            setTimeout(() => {
+                if (!Array.from(document.getElementsByClassName('message')).some(message => message.id === `message-${nextId - 1}` && message.classList.contains('system'))) {
+                    addMessage('聊天机器人未能执行，请您检查一下连接。', 'system');
+                }
+            }, 50000);
+        }
+
+        messages.forEach(message => addMessage(message.text, message.sender));
+    </script>
+</body>
+</html>
